@@ -16,6 +16,17 @@ def gather_scatter(x, edge_index, reduce="sum"):
 
 Check if your pytorch version is larger than v2.0
 
+**Codegen check**
+
+```bash
+cd benchmark
+TORCH_COMPILE_DEBUG=1 python test_compile_basic.py
+```
+
+And then take a look at the `output_code.py` of your debug directory. (Under `torch_compile_debug/torchinductor`)
+
+**Performance comparison:**
+
 ```bash
 python spmm.py --dataset ['cora, etc.'] --feature [32, 64, ...]
 ```
