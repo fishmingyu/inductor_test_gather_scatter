@@ -1,4 +1,4 @@
-## OpenMP test for SpMM
+## PyTorch Inductor test for Gather Scatter
 
 When compiling scatter_gather operator, PyTorch inductor will fall back to generate atomic-based code, which has large performance gap compared to CSR SpMM on CPU.
 Here we propose a simple openmp code base to point out this phenomenon, paving the way for the future sparse compiler RFC.
@@ -28,7 +28,7 @@ And then take a look at the `output_code.py` of your debug directory. (Under `to
 **Performance comparison:**
 
 ```bash
-python spmm.py --dataset ['cora, etc.'] --feature [32, 64, ...]
+python spmm_cpu.py --dataset ['cora, etc.'] --feature [32, 64, ...]
 ```
 
 ### Result Demo
@@ -52,4 +52,14 @@ Model:                           158
 Model name:                      Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 ```
 
-![image info](./spmm.png)
+![image info](./openmp/spmm.png)
+
+### Problems of GPU
+
+Although there has been considerable discussion around efficient SpMM algorithms, compiler-based code generation for SpMM still falls short of producing optimal code. Triton, while recognized for its proficiency in tiling neural networks, struggles with the unique demands of GNN workloads.
+
+A significant issue with Triton's code generation is the challenge of warp-level divergence. Node coarsening within a single thread block is a standard optimization for SpMM kernels, allowing each block to process multiple nodes (or rows) concurrently. However, this optimization can lead to compiler errors due to indirect loading and the variable sparse reduction inherent in SpMM operations. Consequently, Triton's current implementation using the CSR algorithm may actually underperform compared to atomic-based versions, a discrepancy that's further exacerbated by the increased atomic operation bandwidth observed in Nvidia's Volta architecture and beyond.
+
+```bash
+python spmm_triton.py --dataset ['cora, etc.'] --feature [32, 64, ...]
+```

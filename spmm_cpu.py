@@ -7,7 +7,6 @@ import random
 import os
 import tempfile
 from math import inf, nan
-from torch._inductor.hooks import run_intermediate_hooks
 from torch._inductor.utils import maybe_profile
 
 from torch import empty_strided, device
@@ -15,19 +14,15 @@ from torch._inductor.select_algorithm import extern_kernels
 from torch.utils.cpp_extension import load
 from utils import GraphDataset
 
-aten = torch.ops.aten
-assert_size_stride = torch._C._dynamo.guards.assert_size_stride
-reinterpret_tensor = torch.ops.inductor._reinterpret_tensor
-
 module = load(
     name='spmm',
-    sources=['spmm.cpp'],
+    sources=['openmp/spmm.cpp'],
     extra_cflags=['-O2'],
     verbose=True)
 
 module_csr = load(
     name='spmm_csr',
-    sources=['spmm_csr.cpp'],
+    sources=['openmp/spmm_csr.cpp'],
     extra_cflags=['-O2'],
     verbose=True)
 
@@ -64,7 +59,7 @@ def benchmark_compiled_module(times=10, repeat=10, arg0_1=None, arg1_1=None):
 def benchmark_compiled_module_csr(times=10, repeat=10, arg0_1=None, arg1_1=None, num_nodes=0):
     from torch._inductor.utils import print_performance
     scipy_coo = to_scipy_sparse_matrix(arg1_1, num_nodes=num_nodes)
-    scipy_csr = scipy_coo.tocsr()
+    scipy_csr = scipy_coo.tocsc()  # col is the reduced axis
     rowptr = scipy_csr.indptr
     col = scipy_csr.indices
     weight = torch.ones(col.shape, requires_grad=True)
