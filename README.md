@@ -1,9 +1,9 @@
 ## PyTorch Inductor test for Gather Scatter
 
-When compiling scatter_gather operator, PyTorch inductor will fall back to generate atomic-based code, which has large performance gap compared to CSR SpMM on CPU.
-Here we propose a simple openmp code base to point out this phenomenon, paving the way for the future sparse compiler RFC.
+When compiling gather_scatter operator, PyTorch inductor will fall back to generate atomic-based code, which has large performance gap compared to CSR SpMM on CPU, especially for those data input of high sparisity.
+Here we propose a simple target code base to point out this phenomenon, paving the way for the future sparse compiler RFC.
 
-Here is a simple demo for scatter_gather operator.
+Here is a simple demo for gather_scatter operator.
 
 ```python
 def gather_scatter(x, edge_index, reduce="sum"):
