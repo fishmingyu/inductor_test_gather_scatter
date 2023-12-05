@@ -33,6 +33,15 @@ python spmm_cpu.py --dataset ['cora, etc.'] --feature [32, 64, ...]
 
 ### Result Demo
 
+We find that using segment_reduce SpMM can achieve fast performance and avoid format conversion at the same time. In this way, we ensure the frontend to be like:
+
+```python
+def gather_segment_reduce(x, edge_index, reduce="sum", sorted=True):
+    row, col = edge_index # col is sorted
+    x_j = x[row]
+    return segment_reduce(x_j, col, reduce=reduce)
+```
+
 CPU info: (AVX, AVX2 supported)
 
 ```
