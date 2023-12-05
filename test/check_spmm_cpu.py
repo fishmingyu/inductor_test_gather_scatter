@@ -29,6 +29,12 @@ module_csr = load(
     extra_cflags=['-O2'],
     verbose=True)
 
+module_seg = load(
+    name='spmm_seg',
+    sources=['../openmp/spmm_seg.cpp'],
+    extra_cflags=['-O2'],
+    verbose=True)
+
 
 def golden_spmm(sparse_csr, B):
     spmm_res = torch.sparse.mm(sparse_csr, B)
@@ -42,6 +48,11 @@ def spmm_atomic(edge_index, B, C):
 
 def spmm_csr(rowptr, col, B, C):
     module_csr.spmm(rowptr, col, B, C)
+    return C
+
+
+def spmm_seg(edge_index, B, C):
+    module_seg.spmm(edge_index, B, C)
     return C
 
 
@@ -77,10 +88,19 @@ if __name__ == '__main__':
         size=(num_nodes, num_nodes),
         device='cpu',
     )
+    # Step 1: Get the indices that would sort the target nodes
+    sorted_indices = edge_index[1].argsort()
+
+    # Step 2: Reindex the edge_index tensor using the sorted indices
+    sorted_edge_index = edge_index[:, sorted_indices]
     golden_res = golden_spmm(tcsr, nodes_feature)
     out_feature = torch.zeros_like(nodes_feature)
     atomic_res = spmm_atomic(edge_index, nodes_feature, out_feature)
     out_feature = torch.zeros_like(nodes_feature)
     csr_res = spmm_csr(rowptr, col, nodes_feature, out_feature)
+    out_feature = torch.zeros_like(nodes_feature)
+    seg_res = spmm_seg(sorted_edge_index, nodes_feature, out_feature)
+
     assert torch.allclose(golden_res, atomic_res, atol=1e-4, rtol=1e-4)
     assert torch.allclose(golden_res, csr_res, atol=1e-4, rtol=1e-4)
+    assert torch.allclose(golden_res, seg_res, atol=1e-4, rtol=1e-4)

@@ -14,15 +14,25 @@ from torch._inductor.select_algorithm import extern_kernels
 from torch.utils.cpp_extension import load
 from utils import GraphDataset
 
+aten = torch.ops.aten
+assert_size_stride = torch._C._dynamo.guards.assert_size_stride
+reinterpret_tensor = torch.ops.inductor._reinterpret_tensor
+
 module = load(
     name='spmm',
-    sources=['openmp/spmm.cpp'],
+    sources=['./openmp/spmm.cpp'],
     extra_cflags=['-O2'],
     verbose=True)
 
 module_csr = load(
     name='spmm_csr',
-    sources=['openmp/spmm_csr.cpp'],
+    sources=['./openmp/spmm_csr.cpp'],
+    extra_cflags=['-O2'],
+    verbose=True)
+
+module_seg = load(
+    name='spmm_seg',
+    sources=['./openmp/spmm_seg.cpp'],
     extra_cflags=['-O2'],
     verbose=True)
 
@@ -50,6 +60,17 @@ def call_csr(args):
     return (buf0, )
 
 
+def call_seg(args):
+    arg0_1, arg1_1 = args
+    args.clear()
+    buf0 = empty_strided(arg0_1.size(), arg0_1.stride(),
+                         device='cpu', dtype=torch.float32)
+    module_seg.spmm(arg1_1, arg0_1, buf0)
+    del arg0_1
+    del arg1_1
+    return (buf0, )
+
+
 def benchmark_compiled_module(times=10, repeat=10, arg0_1=None, arg1_1=None):
     from torch._inductor.utils import print_performance
 
@@ -59,7 +80,7 @@ def benchmark_compiled_module(times=10, repeat=10, arg0_1=None, arg1_1=None):
 def benchmark_compiled_module_csr(times=10, repeat=10, arg0_1=None, arg1_1=None, num_nodes=0):
     from torch._inductor.utils import print_performance
     scipy_coo = to_scipy_sparse_matrix(arg1_1, num_nodes=num_nodes)
-    scipy_csr = scipy_coo.tocsc()  # col is the reduced axis
+    scipy_csr = scipy_coo.tocsr()
     rowptr = scipy_csr.indptr
     col = scipy_csr.indices
     weight = torch.ones(col.shape, requires_grad=True)
@@ -68,6 +89,17 @@ def benchmark_compiled_module_csr(times=10, repeat=10, arg0_1=None, arg1_1=None,
     csrptr = tcsr.crow_indices().to(torch.int64)
     csrind = tcsr.col_indices().to(torch.int64)
     return print_performance(lambda: call_csr([csrptr, csrind, arg0_1]), times=times, repeat=repeat)
+
+
+def benchmark_compiled_module_seg(times=10, repeat=10, arg0_1=None, arg1_1=None):
+    from torch._inductor.utils import print_performance
+    # Step 1: Get the indices that would sort the target nodes
+    sorted_indices = arg1_1[1].argsort()
+
+    # Step 2: Reindex the edge_index tensor using the sorted indices
+    sorted_edge_index = arg1_1[:, sorted_indices]
+
+    return print_performance(lambda: call_seg([arg0_1, sorted_edge_index]), times=times, repeat=repeat)
 
 
 if __name__ == "__main__":
@@ -102,3 +134,5 @@ if __name__ == "__main__":
         times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
     benchmark_compiled_module_csr(
         times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1, num_nodes=num_nodes)
+    benchmark_compiled_module_seg(
+        times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
