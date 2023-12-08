@@ -127,6 +127,19 @@ extern "C" void kernel_no_vec_sf(long feature_size, long edges,
   }
 }
 
+torch::Tensor segment_spmm_vec(torch::Tensor edge_index,
+                               torch::Tensor input_feature,
+                               torch::Tensor output_feature) {
+  auto input_feature_ptr = input_feature.data_ptr<float>();
+  auto edge_index_ptr = edge_index.data_ptr<long>();
+  auto output_feature_ptr = output_feature.data_ptr<float>();
+  auto feature_size = input_feature.size(1);
+  auto edge_num = edge_index.size(1);
+  kernel_vec(feature_size, edge_num, edge_index_ptr, input_feature_ptr,
+             output_feature_ptr);
+  return output_feature;
+}
+
 torch::Tensor segment_spmm_lf(torch::Tensor edge_index,
                               torch::Tensor input_feature,
                               torch::Tensor output_feature) {
@@ -156,4 +169,5 @@ torch::Tensor segment_spmm_sf(torch::Tensor edge_index,
 PYBIND11_MODULE(spmm_seg, m) {
   m.def("spmm_lf", &segment_spmm_lf, "spmm_seg_lf (CPU)");
   m.def("spmm_sf", &segment_spmm_sf, "spmm_seg_sf (CPU)");
+  m.def("spmm_vec", &segment_spmm_vec, "spmm_seg_vec (CPU)");
 }

@@ -83,6 +83,17 @@ def call_seg_sf(args):
     return (buf0, )
 
 
+def call_seg_vec(args):
+    arg0_1, arg1_1 = args
+    args.clear()
+    buf0 = empty_strided(arg0_1.size(), arg0_1.stride(),
+                         device='cpu', dtype=torch.float32)
+    module_seg.spmm_vec(arg1_1, arg0_1, buf0)
+    del arg0_1
+    del arg1_1
+    return (buf0, )
+
+
 def synchronize():
     if torch.cuda.is_available():
         torch.cuda.synchronize()
@@ -144,6 +155,16 @@ def benchmark_compiled_module_seg_sf(times=10, repeat=10, arg0_1=None, arg1_1=No
     return print_performance(lambda: call_seg_sf([arg0_1, sorted_edge_index]), times=times, repeat=repeat)
 
 
+def benchmark_compiled_module_seg_vec(times=10, repeat=10, arg0_1=None, arg1_1=None):
+    # Step 1: Get the indices that would sort the target nodes
+    sorted_indices = arg1_1[1].argsort()
+
+    # Step 2: Reindex the edge_index tensor using the sorted indices
+    sorted_edge_index = arg1_1[:, sorted_indices]
+
+    return print_performance(lambda: call_seg_vec([arg0_1, sorted_edge_index]), times=times, repeat=repeat)
+
+
 if __name__ == "__main__":
     from torch._dynamo.testing import rand_strided
     import argparse
@@ -176,8 +197,12 @@ if __name__ == "__main__":
         times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
     csr_time = benchmark_compiled_module_csr(
         times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1, num_nodes=num_nodes)
-    seg_lf_time = benchmark_compiled_module_seg_lf(
+    seg_time = benchmark_compiled_module_seg_lf(
         times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
-    seg_sf_time = benchmark_compiled_module_seg_sf(
-        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
-    print(f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_lf_time: {seg_lf_time*1000:.4f} ms \n seg_sf_time: {seg_sf_time*1000:.4f} ms")
+    if feature_size >= 32:
+        seg_vec_time = benchmark_compiled_module_seg_vec(
+            times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+        print(f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_time: {seg_time*1000:.4f} ms \n seg_vec_time: {seg_vec_time*1000:.4f} ms")
+    else:
+        print(
+            f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_time: {seg_time*1000:.4f} ms")
