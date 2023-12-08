@@ -6,6 +6,7 @@ import math
 import random
 import os
 import tempfile
+import time
 from math import inf, nan
 from torch._inductor.utils import maybe_profile
 
@@ -82,14 +83,35 @@ def call_seg_sf(args):
     return (buf0, )
 
 
-def benchmark_compiled_module(times=10, repeat=10, arg0_1=None, arg1_1=None):
-    from torch._inductor.utils import print_performance
+def synchronize():
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
 
+
+def timed(model, example_inputs, times: int = 1) -> float:
+    synchronize()
+    torch.manual_seed(1337)
+    t0 = time.perf_counter()
+    for _ in range(times):
+        result = model(*example_inputs)
+        synchronize()
+    t1 = time.perf_counter()
+    # GC the result after timing
+    assert result is not None
+    return (t1 - t0) / times
+
+
+def print_performance(fn, args=(), times=10, repeat=10, baseline=1.0):
+    timings = torch.tensor([timed(fn, args, times) for _ in range(repeat)])
+    took = torch.median(timings)
+    return took
+
+
+def benchmark_compiled_module(times=10, repeat=10, arg0_1=None, arg1_1=None):
     return print_performance(lambda: call([arg0_1, arg1_1]), times=times, repeat=repeat)
 
 
 def benchmark_compiled_module_csr(times=10, repeat=10, arg0_1=None, arg1_1=None, num_nodes=0):
-    from torch._inductor.utils import print_performance
     scipy_coo = to_scipy_sparse_matrix(arg1_1, num_nodes=num_nodes)
     scipy_csr = scipy_coo.tocsr()
     rowptr = scipy_csr.indptr
@@ -99,11 +121,10 @@ def benchmark_compiled_module_csr(times=10, repeat=10, arg0_1=None, arg1_1=None,
     tcsr = torch.sparse_csr_tensor(rowptr, col, weight, dtype=torch.float)
     csrptr = tcsr.crow_indices().to(torch.int64)
     csrind = tcsr.col_indices().to(torch.int64)
-    return print_performance(lambda: call_csr([csrptr, csrind, arg0_1]), times=times, repeat=repeat)
+    return print_performance(lambda: call_csr([csrptr, csrind, arg0_1]), times=times, repeat=repeat) / times
 
 
 def benchmark_compiled_module_seg_lf(times=10, repeat=10, arg0_1=None, arg1_1=None):
-    from torch._inductor.utils import print_performance
     # Step 1: Get the indices that would sort the target nodes
     sorted_indices = arg1_1[1].argsort()
 
@@ -114,7 +135,6 @@ def benchmark_compiled_module_seg_lf(times=10, repeat=10, arg0_1=None, arg1_1=No
 
 
 def benchmark_compiled_module_seg_sf(times=10, repeat=10, arg0_1=None, arg1_1=None):
-    from torch._inductor.utils import print_performance
     # Step 1: Get the indices that would sort the target nodes
     sorted_indices = arg1_1[1].argsort()
 
@@ -152,11 +172,12 @@ if __name__ == "__main__":
                               device='cpu', dtype=torch.float32)
         arg1_1 = dataset.edge_index
 
-    benchmark_compiled_module(
-        times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
-    benchmark_compiled_module_csr(
-        times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1, num_nodes=num_nodes)
-    benchmark_compiled_module_seg_lf(
-        times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
-    benchmark_compiled_module_seg_sf(
-        times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    atomic_time = benchmark_compiled_module(
+        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    csr_time = benchmark_compiled_module_csr(
+        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1, num_nodes=num_nodes)
+    seg_lf_time = benchmark_compiled_module_seg_lf(
+        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    seg_sf_time = benchmark_compiled_module_seg_sf(
+        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    print(f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_lf_time: {seg_lf_time*1000:.4f} ms \n seg_sf_time: {seg_sf_time*1000:.4f} ms")
