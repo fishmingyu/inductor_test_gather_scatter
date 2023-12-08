@@ -21,7 +21,7 @@ reinterpret_tensor = torch.ops.inductor._reinterpret_tensor
 
 module = load(
     name='spmv',
-    sources=['spmv.cpp'],
+    sources=['./openmp/spmv.cpp'],
     extra_cflags=['-O2'],
     verbose=True)
 
@@ -59,19 +59,19 @@ def call_spmv_sequential(args):
     return (out, )
 
 
-def benchmark_compiled_module_parallel(times=10, repeat=10, edge_index=None, values=None):
+def benchmark_compiled_module_parallel(times=10, repeat=100, edge_index=None, values=None):
     from torch._inductor.utils import print_performance
 
     return print_performance(lambda: call_spmv_parallel([edge_index, values]), times=times, repeat=repeat)
 
 
-def benchmark_compiled_module_atomic(times=10, repeat=10, edge_index=None, values=None):
+def benchmark_compiled_module_atomic(times=10, repeat=100, edge_index=None, values=None):
     from torch._inductor.utils import print_performance
 
     return print_performance(lambda: call_spmv_atomic([edge_index, values]), times=times, repeat=repeat)
 
 
-def benchmark_compiled_module_sequential(times=10, repeat=10, edge_index=None, values=None):
+def benchmark_compiled_module_sequential(times=10, repeat=100, edge_index=None, values=None):
     from torch._inductor.utils import print_performance
 
     return print_performance(lambda: call_spmv_sequential([edge_index, values]), times=times, repeat=repeat)
@@ -80,7 +80,7 @@ def benchmark_compiled_module_sequential(times=10, repeat=10, edge_index=None, v
 if __name__ == "__main__":
     from torch._dynamo.testing import rand_strided
     # Add arguments
-    num_elements = 100000
+    num_elements = 10000
     num_reduce = 100
     edge_index = torch.randint(
         0, num_reduce, (2, num_elements), dtype=torch.int64)

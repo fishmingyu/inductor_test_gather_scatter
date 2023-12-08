@@ -60,12 +60,23 @@ def call_csr(args):
     return (buf0, )
 
 
-def call_seg(args):
+def call_seg_lf(args):
     arg0_1, arg1_1 = args
     args.clear()
     buf0 = empty_strided(arg0_1.size(), arg0_1.stride(),
                          device='cpu', dtype=torch.float32)
-    module_seg.spmm(arg1_1, arg0_1, buf0)
+    module_seg.spmm_lf(arg1_1, arg0_1, buf0)
+    del arg0_1
+    del arg1_1
+    return (buf0, )
+
+
+def call_seg_sf(args):
+    arg0_1, arg1_1 = args
+    args.clear()
+    buf0 = empty_strided(arg0_1.size(), arg0_1.stride(),
+                         device='cpu', dtype=torch.float32)
+    module_seg.spmm_sf(arg1_1, arg0_1, buf0)
     del arg0_1
     del arg1_1
     return (buf0, )
@@ -91,7 +102,7 @@ def benchmark_compiled_module_csr(times=10, repeat=10, arg0_1=None, arg1_1=None,
     return print_performance(lambda: call_csr([csrptr, csrind, arg0_1]), times=times, repeat=repeat)
 
 
-def benchmark_compiled_module_seg(times=10, repeat=10, arg0_1=None, arg1_1=None):
+def benchmark_compiled_module_seg_lf(times=10, repeat=10, arg0_1=None, arg1_1=None):
     from torch._inductor.utils import print_performance
     # Step 1: Get the indices that would sort the target nodes
     sorted_indices = arg1_1[1].argsort()
@@ -99,7 +110,18 @@ def benchmark_compiled_module_seg(times=10, repeat=10, arg0_1=None, arg1_1=None)
     # Step 2: Reindex the edge_index tensor using the sorted indices
     sorted_edge_index = arg1_1[:, sorted_indices]
 
-    return print_performance(lambda: call_seg([arg0_1, sorted_edge_index]), times=times, repeat=repeat)
+    return print_performance(lambda: call_seg_lf([arg0_1, sorted_edge_index]), times=times, repeat=repeat)
+
+
+def benchmark_compiled_module_seg_sf(times=10, repeat=10, arg0_1=None, arg1_1=None):
+    from torch._inductor.utils import print_performance
+    # Step 1: Get the indices that would sort the target nodes
+    sorted_indices = arg1_1[1].argsort()
+
+    # Step 2: Reindex the edge_index tensor using the sorted indices
+    sorted_edge_index = arg1_1[:, sorted_indices]
+
+    return print_performance(lambda: call_seg_sf([arg0_1, sorted_edge_index]), times=times, repeat=repeat)
 
 
 if __name__ == "__main__":
@@ -134,5 +156,7 @@ if __name__ == "__main__":
         times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
     benchmark_compiled_module_csr(
         times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1, num_nodes=num_nodes)
-    benchmark_compiled_module_seg(
+    benchmark_compiled_module_seg_lf(
+        times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    benchmark_compiled_module_seg_sf(
         times=10, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
