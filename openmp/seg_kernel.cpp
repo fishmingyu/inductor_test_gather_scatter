@@ -18,7 +18,9 @@
 
 extern "C" void process_arrays(long n, float *res, const long *indices,
                                const float *values) {
-#pragma omp parallel num_threads(8)
+
+int num_threads = omp_get_num_threads();
+#pragma omp parallel num_threads(num_threads)
   {
     float acc = 0.0;      // Accumulator for the current index
     long last_index = -1; // Initialize last_index with the first index

@@ -20,6 +20,7 @@
 extern "C" void kernel(int feature_size, int node_num, int edge_num,
                        const long *in_ptr0, const float *in_ptr1,
                        float *out_ptr0) {
+int num_threads = omp_get_num_threads();
 #pragma omp parallel num_threads(8)
   {
     {

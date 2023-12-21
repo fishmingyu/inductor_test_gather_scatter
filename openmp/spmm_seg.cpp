@@ -22,7 +22,9 @@ kernel_vec(int feature_size, int edge_num, const long *in_ptr0,
            const float *in_ptr1,
            float *out_ptr0) { // in_ptr0: edge_index, in_ptr1: input_feature,
                               // out_ptr0: output_feature
-#pragma omp parallel num_threads(8)
+
+int num_threads = omp_get_num_threads();
+#pragma omp parallel num_threads(num_threads)
   {
 #pragma omp for
     for (long i0 = 0L; i0 < feature_size; i0 += 8L) {
