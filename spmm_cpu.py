@@ -199,10 +199,9 @@ if __name__ == "__main__":
         times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1, num_nodes=num_nodes)
     seg_time = benchmark_compiled_module_seg_lf(
         times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
-    if feature_size >= 32:
-        seg_vec_time = benchmark_compiled_module_seg_vec(
-            times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
-        print(f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_time: {seg_time*1000:.4f} ms \n seg_vec_time: {seg_vec_time*1000:.4f} ms")
-    else:
-        print(
-            f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_time: {seg_time*1000:.4f} ms")
+    seg_sf_time = benchmark_compiled_module_seg_sf(
+        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    seg_vec_time = benchmark_compiled_module_seg_vec(
+        times=20, repeat=10, arg0_1=arg0_1, arg1_1=arg1_1)
+    print(
+        f"atomic_time: {atomic_time*1000:.4f} ms \n csr_time: {csr_time*1000:.4f} ms \n seg_time: {seg_time*1000:.4f} ms \n seg_sf_time: {seg_sf_time*1000:.4f} ms")

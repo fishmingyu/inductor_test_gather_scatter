@@ -51,7 +51,7 @@ kernel_vec(int feature_size, int edge_num, const long *in_ptr0,
         }
       }
       // Store the last accumulated value
-      tmp_acc_vec.store(out_ptr0 + +(last_index * 32L) + i0);
+      tmp_acc_vec.store(out_ptr0 + (last_index * 32L) + i0);
     }
   }
 }
@@ -99,31 +99,26 @@ extern "C" void kernel_no_vec_sf(long feature_size, long edges,
                                  float *res) {
 #pragma omp parallel num_threads(8)
   {
-    for (long j = 0; j < feature_size; ++j) {
-      float acc = 0.0;      // Accumulator for the current index
-      long last_index = -1; // Initialize last_index with the first index
-      long in_node = 0;
+    float acc = 0.0; // Accumulator for the current index
+    int last_index = -1;
 #pragma omp for
-      for (long i = 0; i < edges; ++i) {
-        if (i == 0) {
-          in_node = edge_index[i];
-          acc = values[in_node * feature_size + j];
-          last_index = edge_index[i + edges];
-        } else if (edge_index[i + edges] != last_index) {
-          atomic_add(&res[last_index],
-                     acc); // Update the last index with accumulated value
-          in_node = edge_index[i];
-          acc = values[in_node * feature_size + j];
-          last_index = edge_index[i + edges]; // Update the last index
-        } else {
-          // Same index, accumulate the values
-          in_node = edge_index[i];
-          acc += values[in_node * feature_size + j];
-        }
+    for (long i = 0; i < edges; ++i) {
+      int in_node = edge_index[i];
+      if (i == 0) {
+        acc = values[in_node];
+        last_index = edge_index[i + edges];
+      } else if (edge_index[i + edges] != last_index) {
+        atomic_add(&res[last_index],
+                   acc); // Update the last index with accumulated value
+        acc = values[in_node];
+        last_index = edge_index[i + edges]; // Update the last index
+      } else {
+        // Same index, accumulate the values
+        acc += values[in_node];
       }
-      // Update the last index after the loop
-      atomic_add(&res[last_index], acc);
     }
+    // Update the last index after the loop
+    atomic_add(&res[last_index], acc);
   }
 }
 

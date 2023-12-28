@@ -80,8 +80,8 @@ def benchmark_compiled_module_sequential(times=10, repeat=10, indices=None, valu
 if __name__ == "__main__":
     from torch._dynamo.testing import rand_strided
     # Add arguments
-    num_elements = 10000
-    num_reduce = 10
+    num_elements = 100000
+    num_reduce = 100
     indices = torch.randint(0, num_reduce, (num_elements, ), dtype=torch.int64)
     values = torch.rand(num_elements, dtype=torch.float32)
     # sort indices

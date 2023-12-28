@@ -24,15 +24,6 @@ extern "C" void kernel(int feature_size, int node_num, const long *csrptr,
   {
     {
 #pragma omp for
-      for (long i0 = static_cast<long>(0L);
-           i0 < static_cast<long>(feature_size * node_num);
-           i0 += static_cast<long>(8L)) {
-        auto tmp0 = at::vec::Vectorized<float>(static_cast<float>(0.0));
-        tmp0.store(out_feature + static_cast<long>(i0));
-      }
-    }
-    {
-#pragma omp for
       for (long i0 = static_cast<long>(0L); i0 < static_cast<long>(node_num);
            i0 += static_cast<long>(1L)) {
 #pragma GCC ivdep
