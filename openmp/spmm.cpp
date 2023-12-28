@@ -41,6 +41,26 @@ extern "C" void kernel(int feature_size, int node_num, int edge_num,
   }
 }
 
+extern "C" void kernel_seq(int feature_size, int node_num, int edge_num,
+                           const long *in_ptr0, const float *in_ptr1,
+                           float *out_ptr0) {
+  {
+    {
+      for (long i0 = static_cast<long>(0L); i0 < static_cast<long>(edge_num);
+           i0 += static_cast<long>(1L)) {
+        for (long i1 = static_cast<long>(0L);
+             i1 < static_cast<long>(feature_size);
+             i1 += static_cast<long>(1L)) {
+          auto tmp0 = in_ptr0[static_cast<long>(edge_num + i0)];
+          auto tmp1 = in_ptr0[static_cast<long>(i0)];
+          auto tmp2 = in_ptr1[static_cast<long>(i1 + (feature_size * tmp1))];
+          out_ptr0[static_cast<long>(i1 + (feature_size * tmp0))] += tmp2;
+        }
+      }
+    }
+  }
+}
+
 torch::Tensor spmm(torch::Tensor edge_index, torch::Tensor input_feature,
                    torch::Tensor output_feature) {
   auto input_feature_ptr = input_feature.data_ptr<float>();
@@ -54,4 +74,20 @@ torch::Tensor spmm(torch::Tensor edge_index, torch::Tensor input_feature,
   return output_feature;
 }
 
-PYBIND11_MODULE(spmm, m) { m.def("spmm", &spmm, "spmm (CPU)"); }
+torch::Tensor spmm_seq(torch::Tensor edge_index, torch::Tensor input_feature,
+                       torch::Tensor output_feature) {
+  auto input_feature_ptr = input_feature.data_ptr<float>();
+  auto edge_index_ptr = edge_index.data_ptr<long>();
+  auto output_feature_ptr = output_feature.data_ptr<float>();
+  auto feature_size = input_feature.size(1);
+  auto node_num = input_feature.size(0);
+  auto edge_num = edge_index.size(1);
+  kernel_seq(feature_size, node_num, edge_num, edge_index_ptr,
+             input_feature_ptr, output_feature_ptr);
+  return output_feature;
+}
+
+PYBIND11_MODULE(spmm, m) {
+  m.def("spmm", &spmm, "spmm (CPU)");
+  m.def("spmm_seq", &spmm_seq, "spmm_seq (CPU)");
+}

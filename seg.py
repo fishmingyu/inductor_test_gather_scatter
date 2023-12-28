@@ -81,7 +81,7 @@ if __name__ == "__main__":
     from torch._dynamo.testing import rand_strided
     # Add arguments
     num_elements = 100000
-    num_reduce = 100
+    num_reduce = 10
     indices = torch.randint(0, num_reduce, (num_elements, ), dtype=torch.int64)
     values = torch.rand(num_elements, dtype=torch.float32)
     # sort indices
